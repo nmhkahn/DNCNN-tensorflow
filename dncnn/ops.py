@@ -1,0 +1,87 @@
+import numpy as np
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
+import tensorflow.contrib.slim.nets as nets
+
+bottleneck = nets.resnet_v2.bottleneck
+
+
+@slim.add_arg_scope
+def lrelu(inputs, leak=0.2, scope="lrelu"):
+    """
+    Note: Implementation is from
+    https://github.com/tensorflow/tensorflow/issues/4079
+    """
+    with tf.variable_scope(scope):
+        f1 = 0.5 * (1 + leak)
+        f2 = 0.5 * (1 - leak)
+        return f1 * inputs + f2 * abs(inputs)
+
+
+def read_image_from_filenames(filenames,
+                              base_dir, trainval, quality,
+                              batch_size, num_threads=4,
+                              output_height=128, output_width=128,
+                              min_after_dequeue=5000,
+                              use_shuffle_batch=True, scope=None):
+    with tf.variable_scope(scope, "image_producer"):
+        artifact_filenames = ["{}/{}/Q{}/{}.jpg" \
+            .format(base_dir, trainval, quality, name) for name in filenames]
+        reference_filenames = ["{}/{}/origin/{}.jpg" \
+            .format(base_dir, trainval, name) for name in filenames]
+
+        # when training use_shuffle_batch must be True
+        # else (e.g. evaluation) evaluation code runs in single epoch and
+        # use tf.train.batch instead tf.train.shuffle_batch
+        if use_shuffle_batch:
+            num_epochs = None
+        else:
+            num_epochs = 1
+
+        # this method is from https://stackoverflow.com/q/34340489
+        # use tf.train.slice_input_producer instead of string_input_producer
+        # and tf.read_file instead of tf.WholeFileReader.read
+        input_queue = tf.train.slice_input_producer(
+            [artifact_filenames, reference_filenames],
+            num_epochs=num_epochs, shuffle=False)
+
+        artifact_data  = tf.read_file(input_queue[0])
+        reference_data = tf.read_file(input_queue[1])
+
+        artifact_im  = tf.image.decode_jpeg(artifact_data, channels=1)
+        reference_im = tf.image.decode_jpeg(reference_data, channels=1)
+
+        # concat all images in channel axis to randomly crop together
+        concated_im = tf.concat([artifact_im, reference_im], axis=2)
+        if use_shuffle_batch:
+            concated_im = tf.random_crop(concated_im,
+                                         [output_height, output_width, 1+1])
+        else:
+            concated_im = tf.image.resize_image_with_crop_or_pad(concated_im,
+                                                                 output_height,
+                                                                 output_width)
+
+        if use_shuffle_batch:
+            capacity = min_after_dequeue + 10 * batch_size
+            batch = tf.train.shuffle_batch(
+                [concated_im],
+                batch_size=batch_size,
+                capacity=capacity,
+                num_threads=num_threads,
+                min_after_dequeue=min_after_dequeue,
+                allow_smaller_final_batch=True,
+                name="shuffle_batch")
+        else:
+            batch = tf.train.batch(
+                [concated_im],
+                batch_size=batch_size,
+                num_threads=num_threads,
+                allow_smaller_final_batch=True,
+                name="batch")
+
+        # split concatenated data
+        artifact_batch, reference_batch = tf.split(batch, [1, 1], axis=3)
+        artifact_batch  = tf.cast(artifact_batch, tf.float32) / 127.5 - 1.0
+        reference_batch = tf.cast(reference_batch, tf.float32) / 127.5 - 1.0
+
+        return artifact_batch, reference_batch
