@@ -16,11 +16,16 @@ import model
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--loop",
+                        dest="loop", 
+                        action="store_true")
+
     parser.add_argument("--sample_dir",
                         type=str,
                         default="sample/")
     parser.add_argument("--checkpoint_dir",
-                        type=str)
+                        type=str,
+                        default="log/")
     parser.add_argument("--dataset_dir",
                         type=str,
                         default="flickr")
@@ -138,6 +143,9 @@ def sample_loop(filenames, config):
 
         tf.reset_default_graph()
         shutil.rmtree("/tmp/svtmp")
+
+        if not config.loop:
+            break
 
 
 def main(config):
