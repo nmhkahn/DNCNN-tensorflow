@@ -28,14 +28,18 @@ def load_images_from_paths(paths, image_size):
     return ims
 
 
-def save_images(ims, directory, basename, step):
-    for i, im in enumerate(ims):
-        path = os.path.join(directory, "{}_{}_{}.png".format(step, i, basename))
-        scipy.misc.imsave(path, im)
+def save_image(im, directory, basename, step):
+    path = os.path.join(directory, "{}_{}.png".format(step, basename))
+    scipy.misc.imsave(path, im)
 
 
 def compare_psnr(true_im, pred_im):
     return skimage.measure.compare_psnr(true_im, pred_im)
+
+
+def compare_ssim(true_im, pred_im):
+    return skimage.measure.compare_ssim(true_im, pred_im)
+
 
 def flush_stdout():
     sys.stdout.write("\x1b[1A")
