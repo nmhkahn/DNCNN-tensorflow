@@ -56,7 +56,7 @@ def read_image_from_filenames(filenames,
         if use_shuffle_batch:
             concated_im = tf.random_crop(concated_im,
                                          [output_height, output_width, 1+1])
-        else:
+        elif output_height > 0 and output_width > 0 and not use_shuffle_batch:
             concated_im = tf.image.resize_image_with_crop_or_pad(concated_im,
                                                                  output_height,
                                                                  output_width)

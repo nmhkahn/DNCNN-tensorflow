@@ -3,6 +3,7 @@ import glob
 import time
 import shutil
 import argparse
+import scipy.misc
 import numpy as np
 
 # suppress debugging log
@@ -17,7 +18,10 @@ import model
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--loop",
-                        dest="loop", 
+                        dest="loop",
+                        action="store_true")
+    parser.add_argument("--gpu",
+                        dest="gpu",
                         action="store_true")
 
     parser.add_argument("--sample_dir",
@@ -33,12 +37,6 @@ def parse_args():
     parser.add_argument("--quality",
                         type=int,
                         default=20)
-    parser.add_argument("--batch_size",
-                        type=int,
-                        default=10)
-    parser.add_argument("--image_size",
-                        type=int,
-                        default=448)
     parser.add_argument("--num_threads",
                         type=int,
                         default=1)
@@ -46,24 +44,22 @@ def parse_args():
     return parser.parse_args()
 
 
-def build_model(filenames, config):
+def build_model(im_height, im_width, config):
+    artifact_im = tf.placeholder(tf.float32, [1, im_height, im_width, 1])
     is_training = tf.placeholder(tf.bool, name="is_training")
-    artifact_im, reference_im = ops.read_image_from_filenames(
-        filenames,
-        base_dir=config.dataset_dir, trainval="test",
-        quality=config.quality,
-        batch_size=config.batch_size, num_threads=config.num_threads,
-        output_height=config.image_size, output_width=config.image_size,
-        use_shuffle_batch=False)
 
-    with tf.device("/cpu:0"):
+    if config.gpu:
+        device = "/gpu:0"
+    else:
+        device = "/cpu:0"
+
+    with tf.device(device):
         with slim.arg_scope(model.arg_scope(is_training)):
             dn, residual, _ = model.dncnn(artifact_im, scope="dncnn")
 
     return {"denoised": dn,
             "residual": residual,
-            "reference": reference_im,
-            "artifact": artifact_im,
+            "artifact_im": artifact_im,
             "is_training": is_training}
 
 
@@ -85,78 +81,92 @@ def load_from_checkpoint(path, exclude=None):
     return init_fn, path
 
 
-def sample_loop(filenames, config):
+def loop_body(ckpt_path, artifact_ims, reference_ims, config):
+    print(time.ctime())
+    print("Load checkpoint: {}".format(ckpt_path))
+
+    mean_psnr_artifact, mean_psnr_denoised = 0, 0
+    mean_ssim_artifact, mean_ssim_denoised = 0, 0
+    for i, (artifact_im, reference_im) in enumerate(zip(artifact_ims, reference_ims)):
+        h, w = artifact_im.shape[:2]
+        params = build_model(h, w, config)
+
+        init_fn, ckpt_path = load_from_checkpoint(ckpt_path)
+        ckpt_step = ckpt_path.split("/")[-1]
+
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        init_fn(sess)
+
+        artifact_im = artifact_im.reshape(1, h, w, 1)
+
+        denoised_im, residual_im = sess.run([
+            params["denoised"], params["residual"]],
+            feed_dict={params["artifact_im"]: artifact_im,
+                       params["is_training"]: False})
+
+        artifact_im = ((artifact_im+1) / 2.0).reshape((h, w)).astype(np.float32)
+        denoised_im = ((denoised_im+1) / 2.0).reshape((h, w)).astype(np.float32)
+        residual_im = ((residual_im+1) / 2.0).reshape((h, w)).astype(np.float32)
+        reference_im = ((reference_im+1) / 2.0).reshape((h, w)).astype(np.float32)
+
+        print(np.max(reference_im), np.min(reference_im))
+        print(np.max(artifact_im), np.min(artifact_im))
+        print(np.max(denoised_im), np.min(denoised_im))
+        print(np.max(residual_im), np.min(residual_im))
+
+        mean_psnr_artifact = utils.compare_psnr(reference_im,
+            artifact_im)
+        mean_psnr_denoised = utils.compare_psnr(reference_im,
+            denoised_im)
+
+        mean_ssim_artifact = utils.compare_ssim(reference_im,
+            artifact_im)
+        mean_ssim_denoised = utils.compare_ssim(reference_im,
+            denoised_im)
+
+        print(mean_psnr_artifact, mean_psnr_denoised)
+        print(mean_ssim_artifact, mean_ssim_denoised)
+
+        utils.save_image(artifact_im, config.sample_dir,
+                          "{}_artifact".format(i), ckpt_step)
+        utils.save_image(reference_im, config.sample_dir,
+                          "{}_reference".format(i), ckpt_step)
+        utils.save_image(denoised_im, config.sample_dir,
+                          "{}_denoised".format(i), ckpt_step)
+        utils.save_image(residual_im, config.sample_dir,
+                          "{}_residual".format(i), ckpt_step)
+
+        tf.reset_default_graph()
+
+    print("Average PSNR - artifact:{:.3f}, denoising:{:.3f}"
+        .format(mean_psnr_artifact, mean_psnr_denoised))
+    print("Average SSIM - artifact:{:.3f}, denoising:{:.3f}"
+        .format(mean_ssim_artifact, mean_ssim_denoised))
+
+
+def loop(artifact_ims, origin_ims, config):
     ckpt_history = list()
     while True:
         # wait until new checkpoint exist
         path = wait_for_new_checkpoint(config.checkpoint_dir, ckpt_history)
+        loop_body(path, artifact_ims, origin_ims, config)
 
-        params = build_model(filenames, config)
-        init_fn, ckpt_path = load_from_checkpoint(path)
-        ckpt_step = ckpt_path.split("/")[-1]
-
-        sv = tf.train.Supervisor(logdir="/tmp/svtmp",
-                                 saver=None,
-                                 init_fn=init_fn)
-        with sv.managed_session() as sess:
-            print(time.ctime())
-            print("Load checkpoint: {}".format(ckpt_path))
-
-            ims = [[], [], [], []]
-            while True:
-                try:
-                    denoised_im, residual_im, artifact_im, reference_im = sess.run(
-                        [params["denoised"], params["residual"],
-                         params["artifact"], params["reference"]],
-                        feed_dict={params["is_training"]: False})
-
-                    # re-sacle images
-                    ims[0].extend((artifact_im+1) / 2.0)
-                    ims[1].extend((reference_im+1) / 2.0)
-                    ims[2].extend(((denoised_im+1) / 2.0).astype(np.float32))
-                    ims[3].extend(((residual_im+1) / 2.0).astype(np.float32))
-                except tf.errors.OutOfRangeError:
-                    break
-            ims = [np.array(element).reshape(
-                   (-1, config.image_size, config.image_size))
-                   for element in ims]
-
-        # evaluate metric and save samples
-        mean_psnr_artifact, mean_psnr_denoised = 0, 0
-        for artifact, reference, denoised in zip(ims[0], ims[1], ims[2]):
-            mean_psnr_artifact += utils.compare_psnr(reference,
-                artifact) / len(ims[1])
-            mean_psnr_denoised  += utils.compare_psnr(reference,
-                denoised) / len(ims[1])
-
-        print("Average PSNR - artifact:{:.3f}, denoising:{:.3f}"
-            .format(mean_psnr_artifact, mean_psnr_denoised))
-
-        utils.save_images(ims[0], config.sample_dir,
-                          "artifact", ckpt_step)
-        utils.save_images(ims[1], config.sample_dir,
-                          "reference", ckpt_step)
-        utils.save_images(ims[2], config.sample_dir,
-                          "denoised", ckpt_step)
-        utils.save_images(ims[3], config.sample_dir,
-                          "residual", ckpt_step)
-
-        tf.reset_default_graph()
-        shutil.rmtree("/tmp/svtmp")
-
-        if not config.loop:
-            break
+        if not config.loop: break
 
 
 def main(config):
-    im_paths = glob.glob("{}/test/Q{}/*.jpg".format(config.dataset_dir,
-                                                   config.quality))[:300]
-    im_names = [path.split(".")[0].split("/")[-1] for path in im_paths]
+    artifact_paths  = glob.glob("{}/Q{}/*.jpg".format(config.dataset_dir,
+                                                           config.quality))
+    reference_paths = glob.glob("{}/test/gray/*.jpg".format(config.dataset_dir))
+
+    artifact_ims  = np.array([scipy.misc.imread(path) / 127.5 - 1.0 for path in artifact_paths])
+    reference_ims = np.array([scipy.misc.imread(path) / 127.5 - 1.0 for path in reference_paths])
 
     if not os.path.exists(config.sample_dir):
         os.makedirs(config.sample_dir)
 
-    sample_loop(im_names, config)
+    loop(artifact_ims, reference_ims, config)
 
 
 if __name__ == "__main__":
