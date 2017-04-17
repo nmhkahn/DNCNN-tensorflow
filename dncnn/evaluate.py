@@ -55,7 +55,7 @@ def build_model(im_height, im_width, config):
 
     with tf.device(device):
         with slim.arg_scope(model.arg_scope(is_training)):
-            dn, residual, _ = model.dncnn(artifact_im, scope="dncnn")
+            dn, residual, _ = model.dncnn_base(artifact_im, scope="generator")
 
     return {"denoised": dn,
             "residual": residual,
@@ -87,10 +87,11 @@ def loop_body(ckpt_path, artifact_ims, reference_ims, config):
 
     mean_psnr_artifact, mean_psnr_denoised = 0, 0
     mean_ssim_artifact, mean_ssim_denoised = 0, 0
-    for i, (artifact_im, reference_im) in enumerate(zip(artifact_ims, reference_ims)):
+    for i in range(len(artifact_ims)):
+        artifact_im, reference_im = artifact_ims[i], reference_ims[i]
         h, w = artifact_im.shape[:2]
-        params = build_model(h, w, config)
 
+        params = build_model(h, w, config)
         init_fn, ckpt_path = load_from_checkpoint(ckpt_path)
         ckpt_step = ckpt_path.split("/")[-1]
 
@@ -105,15 +106,10 @@ def loop_body(ckpt_path, artifact_ims, reference_ims, config):
             feed_dict={params["artifact_im"]: artifact_im,
                        params["is_training"]: False})
 
-        artifact_im = ((artifact_im+1) / 2.0).reshape((h, w)).astype(np.float32)
-        denoised_im = ((denoised_im+1) / 2.0).reshape((h, w)).astype(np.float32)
-        residual_im = ((residual_im+1) / 2.0).reshape((h, w)).astype(np.float32)
+        artifact_im  = ((artifact_im+1) / 2.0).reshape((h, w)).astype(np.float32)
+        denoised_im  = ((denoised_im+1) / 2.0).reshape((h, w)).astype(np.float32)
+        residual_im  = ((residual_im+1) / 2.0).reshape((h, w)).astype(np.float32)
         reference_im = ((reference_im+1) / 2.0).reshape((h, w)).astype(np.float32)
-
-        print(np.max(reference_im), np.min(reference_im))
-        print(np.max(artifact_im), np.min(artifact_im))
-        print(np.max(denoised_im), np.min(denoised_im))
-        print(np.max(residual_im), np.min(residual_im))
 
         mean_psnr_artifact = utils.compare_psnr(reference_im,
             artifact_im)
@@ -124,9 +120,6 @@ def loop_body(ckpt_path, artifact_ims, reference_ims, config):
             artifact_im)
         mean_ssim_denoised = utils.compare_ssim(reference_im,
             denoised_im)
-
-        print(mean_psnr_artifact, mean_psnr_denoised)
-        print(mean_ssim_artifact, mean_ssim_denoised)
 
         utils.save_image(artifact_im, config.sample_dir,
                           "{}_artifact".format(i), ckpt_step)
@@ -156,12 +149,15 @@ def loop(artifact_ims, origin_ims, config):
 
 
 def main(config):
-    artifact_paths  = glob.glob("{}/Q{}/*.jpg".format(config.dataset_dir,
-                                                           config.quality))
-    reference_paths = glob.glob("{}/test/gray/*.jpg".format(config.dataset_dir))
+    artifact_paths = glob.glob(
+        "{}/test/Q{}/*.jpg".format(config.dataset_dir, config.quality))
+    reference_paths = glob.glob(
+        "{}/test/gray/*.jpg".format(config.dataset_dir))
 
-    artifact_ims  = np.array([scipy.misc.imread(path) / 127.5 - 1.0 for path in artifact_paths])
-    reference_ims = np.array([scipy.misc.imread(path) / 127.5 - 1.0 for path in reference_paths])
+    artifact_ims  = np.array([scipy.misc.imread(path) / 127.5 - 1.0 
+                              for path in artifact_paths])
+    reference_ims = np.array([scipy.misc.imread(path) / 127.5 - 1.0 
+                              for path in reference_paths])
 
     if not os.path.exists(config.sample_dir):
         os.makedirs(config.sample_dir)
