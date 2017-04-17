@@ -25,7 +25,7 @@ def arg_scope(is_training):
             return arg_scp
 
 
-def dncnn_base(inputs, reuse=None, scope=None):
+def base(inputs, reuse=None, scope=None):
     net = inputs
     with tf.variable_scope(scope or "model", reuse=reuse) as scp:
         end_pts_collection = scp.name+"end_pts"
@@ -56,7 +56,7 @@ def dncnn_base(inputs, reuse=None, scope=None):
     return dn, net, end_pts
 
 
-def dncnn_residual(inputs, reuse=None, scope=None):
+def residual(inputs, reuse=None, scope=None):
     net = inputs
     with tf.variable_scope(scope or "model", reuse=reuse) as scp:
         end_pts_collection = scp.name+"end_pts"
@@ -88,7 +88,7 @@ def dncnn_residual(inputs, reuse=None, scope=None):
 
 
 
-def dncnn_base_skip(inputs, reuse=None, scope=None):
+def base_skip(inputs, reuse=None, scope=None):
     net = inputs
     with tf.variable_scope(scope or "model", reuse=reuse) as scp:
         end_pts_collection = scp.name+"end_pts"
@@ -124,7 +124,7 @@ def dncnn_base_skip(inputs, reuse=None, scope=None):
     return dn, net, end_pts
 
 
-def dncnn_residual_skip(inputs, reuse=None, scope=None):
+def residual_skip(inputs, reuse=None, scope=None):
     net = inputs
     with tf.variable_scope(scope or "model", reuse=reuse) as scp:
         end_pts_collection = scp.name+"end_pts"
