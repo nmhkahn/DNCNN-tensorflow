@@ -18,6 +18,25 @@ def lrelu(inputs, leak=0.2, scope="lrelu"):
         return f1 * inputs + f2 * abs(inputs)
 
 
+def residual_block(inputs,
+                   depth, stride=1, 
+                   outputs_collections=None, 
+                   scope=None):
+    with tf.variable_scope(scope, "residual_block") as scp:
+        shortcut = tf.identity(inputs, name="shortcut")
+        preact = slim.batch_norm(inputs, activation_fn=tf.nn.relu, scope="preact")
+
+        residual = slim.conv2d(preact, depth, [3, 3], stride, scope="conv1")
+        residual = slim.conv2d(preact, depth, [3, 3], stride,
+                               normalizer_fn=None,
+                               activation_fn=None,
+                               scope="conv2")
+
+        output = shortcut + residual
+
+    return output
+
+
 def read_image_from_filenames(filenames,
                               base_dir, trainval, quality,
                               batch_size, num_threads=4,
