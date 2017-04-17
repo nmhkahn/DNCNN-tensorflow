@@ -26,8 +26,8 @@ def residual_block(inputs,
         shortcut = tf.identity(inputs, name="shortcut")
         preact = slim.batch_norm(inputs, activation_fn=tf.nn.relu, scope="preact")
 
-        residual = slim.conv2d(preact, depth, [3, 3], stride, scope="conv1")
-        residual = slim.conv2d(preact, depth, [3, 3], stride,
+        residual = slim.conv2d(preact, depth, [3, 3], stride=stride, scope="conv1")
+        residual = slim.conv2d(preact, depth, [3, 3], stride=stride,
                                normalizer_fn=None,
                                activation_fn=None,
                                scope="conv2")

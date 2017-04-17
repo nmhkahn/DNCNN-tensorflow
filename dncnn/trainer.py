@@ -43,12 +43,9 @@ class Trainer(object):
 
         global_step  = tf.Variable(0, trainable=False, name="global_step")
         is_training = tf.placeholder(tf.bool, name="is_training")
-        learning_rate = tf.train.exponential_decay(
-            config.learning_rate, 
-            global_step,
-            config.decay_steps, 
-            config.decay_ratio, 
-            staircase=True)
+        learning_rate = tf.Variable(config.learning_rate, 
+                                    trainable=False,
+                                    name="learning_rate")
 
         artifact_im, reference_im = ops.read_image_from_filenames(
             filenames,
@@ -70,14 +67,28 @@ class Trainer(object):
 
     def _build_model(self):
         config, params = self.config, self.params
-
+        
         is_training  = params["is_training"]
+        learnig_rate = params["learning_rate"]
         global_step  = params["global_step"]
         artifact_im  = params["artifact_im"]
         reference_im = params["reference_im"]
+        
+        # TODO: more elegant way? (such as factory pattern)
+        if config.model == "base":
+            model_fn = model.base
+        elif config.model == "residual":
+            model_fn = model.residual
+        elif config.model == "base-skip":
+            model_fn = model.base_skip
+        elif config.model == "residual-skip":
+            model_fn = model.residual_skip
+        else:
+            raise NotImplementedError("There is no such {} model"
+                                      .format(config.model))
 
         with slim.arg_scope(model.arg_scope(is_training)):
-            G_dn, G_residual, end_pts = model.dncnn_base(
+            G_dn, G_residual, end_pts = model_fn(
                 artifact_im, scope="generator")
 
         num_params = 0
@@ -94,8 +105,10 @@ class Trainer(object):
                 labels=R_residual, predictions=G_residual)
 
         with tf.variable_scope("Optimizer"):
-            optimizer = tf.train.AdamOptimizer(params["learning_rate"],
-                beta1=config.beta1).minimize(L2_loss, params["global_step"])
+            optimizer = tf.train.AdamOptimizer(
+                learning_rate,
+                beta1=config.beta1
+                epsilon=config.epsilon).minimize(L2_loss, global_step)
 
         params["denoised"]  = G_dn
         params["residual"]  = G_residual

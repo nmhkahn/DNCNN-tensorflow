@@ -53,9 +53,23 @@ def build_model(im_height, im_width, config):
     else:
         device = "/cpu:0"
 
+    model_name = config.checkpoint_dir.split("_")[-1]
+    # TODO: more elegant way? (such as factory pattern)
+    if model_name == "base":
+        model_fn = model.base
+    elif model_name == "residual":
+        model_fn = model.residual
+    elif model_name == "base-skip":
+        model_fn = model.base_skip
+    elif model_name == "residual-skip":
+        model_fn = model.residual_skip
+    else:
+        raise NotImplementedError("There is no such {} model"
+                                  .format(config.model))
+
     with tf.device(device):
         with slim.arg_scope(model.arg_scope(is_training)):
-            dn, residual, _ = model.dncnn_base(artifact_im, scope="generator")
+            dn, residual, _ = model_fn(artifact_im, scope="generator")
 
     return {"denoised": dn,
             "residual": residual,

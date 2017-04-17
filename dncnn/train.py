@@ -16,6 +16,9 @@ def parse_args():
     parser.add_argument("--dataset_dir",
                         type=str,
                         default="flickr")
+    parser.add_argument("--model",
+                        type=str)
+
 
     parser.add_argument("--batch_size",
                         type=int,
@@ -30,18 +33,15 @@ def parse_args():
     parser.add_argument("--learning_rate",
                         type=float,
                         default=0.01)
-    parser.add_argument("--decay_steps",
-                        type=int,
-                        default=25000)
     parser.add_argument("--max_steps",
                         type=int,
                         default=100000)
-    parser.add_argument("--decay_ratio",
-                        type=float,
-                        default=0.5)
     parser.add_argument("--beta1",
                         type=float,
                         default=0.5)
+    parser.add_argument("--epsilon",
+                        type=float,
+                        default=0.0001)
 
     parser.add_argument("--num_threads",
                         type=int,
@@ -57,7 +57,7 @@ def parse_args():
                         default=5000)
     parser.add_argument("--min_after_dequeue",
                         type=int,
-                        default=5000)
+                        default=1000)
     return parser.parse_args()
 
 
