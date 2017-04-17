@@ -46,7 +46,7 @@ def read_image_from_filenames(filenames,
     with tf.variable_scope(scope, "image_producer"):
         artifact_filenames = ["{}/{}/Q{}/{}.jpg" \
             .format(base_dir, trainval, quality, name) for name in filenames]
-        reference_filenames = ["{}/{}/origin/{}.jpg" \
+        reference_filenames = ["{}/{}/gray/{}.jpg" \
             .format(base_dir, trainval, name) for name in filenames]
 
         # when training use_shuffle_batch must be True
