@@ -10,14 +10,12 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--logdir",
-                        type=str,
-                        default="log/")
+                        type=str)
+    parser.add_argument("--checkpoint_basename",
+                        type=str)
     parser.add_argument("--dataset_dir",
                         type=str,
                         default="flickr")
-    parser.add_argument("--checkpoint_basename",
-                        type=str,
-                        default="artifact")
 
     parser.add_argument("--batch_size",
                         type=int,
@@ -56,7 +54,7 @@ def parse_args():
                         default=20)
     parser.add_argument("--save_model_steps",
                         type=int,
-                        default=1000)
+                        default=5000)
     parser.add_argument("--min_after_dequeue",
                         type=int,
                         default=5000)
@@ -65,7 +63,7 @@ def parse_args():
 
 def main(args):
     # prepare filenames to read in training
-    im_paths = glob.glob("{}/train/origin/*.jpg".format(args.dataset_dir))
+    im_paths = glob.glob("{}/train/gray/*.jpg".format(args.dataset_dir))
     im_names = [path.split(".")[0].split("/")[-1] for path in im_paths]
 
     t = trainer.Trainer(im_names, args)

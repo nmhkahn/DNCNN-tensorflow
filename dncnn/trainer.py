@@ -18,9 +18,8 @@ class Trainer(object):
         self._build_model()
 
         self.saver = tf.train.Saver(max_to_keep=config.max_to_keep)
-        # multiply 255 to fit to loss as [0, 255] scale images
         self.loss_summaries = tf.summary.merge([
-            tf.summary.scalar("L2_loss", 255*self.params["L2_loss"])
+            tf.summary.scalar("L2_loss", self.params["L2_loss"])
         ])
         self.summary_writer = tf.summary.FileWriter(config.logdir)
 
@@ -71,22 +70,20 @@ class Trainer(object):
         reference_im = params["reference_im"]
 
         with slim.arg_scope(model.arg_scope(is_training)):
-            dn, residual, _ = model.dncnn(artifact_im, scope="dncnn")
-            params["test_aim"] = artifact_im
-            params["test_rim"] = reference_im
-            params["test_nim"] = artifact_im - reference_im
+            G_dn, G_residual, end_pts = model.dncnn_base(
+                artifact_im, scope="generator")
 
         with tf.variable_scope("Loss"):
-            noise = artifact_im - reference_im
-            L2_loss = tf.losses.mean_squared_error(
-                labels=noise, predictions=residual)
+            R_residual = artifact_im - reference_im
+            L2_loss = 1000*tf.losses.mean_squared_error(
+                labels=R_residual, predictions=G_residual)
 
         with tf.variable_scope("Optimizer"):
             optimizer = tf.train.AdamOptimizer(params["learning_rate"],
                 beta1=config.beta1).minimize(L2_loss, params["global_step"])
 
-        params["denoised"]  = dn
-        params["residual"]  = residual
+        params["denoised"]  = G_dn
+        params["residual"]  = G_residual
         params["L2_loss"]   = L2_loss
         params["optimizer"] = optimizer
 
