@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+from operator import mul
+from functools import reduce
 import numpy as np
 import tensorflow as tf
 slim = tf.contrib.slim
@@ -42,15 +44,20 @@ class Trainer(object):
         global_step  = tf.Variable(0, trainable=False, name="global_step")
         is_training = tf.placeholder(tf.bool, name="is_training")
         learning_rate = tf.train.exponential_decay(
-            config.learning_rate, global_step,
-            config.decay_steps, config.decay_ratio, staircase=True)
+            config.learning_rate, 
+            global_step,
+            config.decay_steps, 
+            config.decay_ratio, 
+            staircase=True)
 
         artifact_im, reference_im = ops.read_image_from_filenames(
             filenames,
             base_dir=config.dataset_dir, trainval="train",
             quality=config.quality,
-            batch_size=config.batch_size, num_threads=config.num_threads,
-            output_height=config.image_size, output_width=config.image_size,
+            batch_size=config.batch_size, 
+            num_threads=config.num_threads,
+            output_height=config.image_size, 
+            output_width=config.image_size,
             min_after_dequeue=config.min_after_dequeue,
             use_shuffle_batch=True)
 
@@ -73,8 +80,16 @@ class Trainer(object):
             G_dn, G_residual, end_pts = model.dncnn_base(
                 artifact_im, scope="generator")
 
+        num_params = 0
+        for var in tf.trainable_variables():
+            print(var.name, var.get_shape())
+            num_params += reduce(mul, var.get_shape().as_list(), 1)
+
+        print("Total parameter: {}".format(num_params))
+
         with tf.variable_scope("Loss"):
             R_residual = artifact_im - reference_im
+            # multiple 1000 to compare L2 loss in GAN
             L2_loss = 1000*tf.losses.mean_squared_error(
                 labels=R_residual, predictions=G_residual)
 

@@ -1,7 +1,5 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-import tensorflow.contrib.slim.nets as nets
-bottleneck = nets.resnet_v2.bottleneck
 
 import ops
 
@@ -27,7 +25,7 @@ def arg_scope(is_training):
             return arg_scp
 
 
-def dncnn(inputs, reuse=None, scope=None):
+def dncnn_base(inputs, reuse=None, scope=None):
     net = inputs
     with tf.variable_scope(scope or "model", reuse=reuse) as scp:
         end_pts_collection = scp.name+"end_pts"
@@ -36,20 +34,125 @@ def dncnn(inputs, reuse=None, scope=None):
             net = slim.conv2d(net, 64, [3, 3],
                               normalizer_fn=None,
                               normalizer_params=None,
-                              scope="conv1")
+                              scope="preconv1")
 
-            net = bottleneck(net, 96, 64, 1, scope="unit1")
-            net = bottleneck(net, 96, 64, 1, scope="unit2")
-            net = bottleneck(net, 96, 64, 1, scope="unit3")
-            net = bottleneck(net, 96, 64, 1, scope="unit4")
-            net = bottleneck(net, 96, 64, 1, scope="unit5")
-
-            net = slim.conv2d(net, 128, [3, 3], scope="conv2")
+            for i in range(10):
+                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv1".format(i+1))
+                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv2".format(i+1))
+            
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
+            
             net = slim.conv2d(net, 1, [3, 3],
                               activation_fn=tf.nn.tanh,
                               normalizer_fn=None,
                               normalizer_params=None,
-                              scope="conv3")
+                              scope="logit")
+
+            end_pts = slim.utils.convert_collection_to_dict(end_pts_collection)
+            dn = inputs - net
+
+    return dn, net, end_pts
+
+
+def dncnn_residual(inputs, reuse=None, scope=None):
+    net = inputs
+    with tf.variable_scope(scope or "model", reuse=reuse) as scp:
+        end_pts_collection = scp.name+"end_pts"
+        with slim.arg_scope([slim.conv2d],
+                            outputs_collections=end_pts_collection):
+            net = slim.conv2d(net, 64, [3, 3],
+                              normalizer_fn=None,
+                              normalizer_params=None,
+                              scope="preconv1")
+
+            for i in range(10):
+                net = ops.residual_block(net, 64, scope="unit{}".format(i+1))
+            net = slim.batch_norm(net, activation_fn=tf.nn.relu, scope="postact")
+            
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
+            
+            net = slim.conv2d(net, 1, [3, 3],
+                              activation_fn=tf.nn.tanh,
+                              normalizer_fn=None,
+                              normalizer_params=None,
+                              scope="logit")
+
+            end_pts = slim.utils.convert_collection_to_dict(end_pts_collection)
+            dn = inputs - net
+
+    return dn, net, end_pts
+
+
+
+def dncnn_base_skip(inputs, reuse=None, scope=None):
+    net = inputs
+    with tf.variable_scope(scope or "model", reuse=reuse) as scp:
+        end_pts_collection = scp.name+"end_pts"
+        with slim.arg_scope([slim.conv2d],
+                            outputs_collections=end_pts_collection):
+            net = slim.conv2d(net, 64, [3, 3],
+                              normalizer_fn=None,
+                              normalizer_params=None,
+                              scope="preconv1")
+
+            shortcut = tf.identity(net, name="shortcut")
+
+            for i in range(10):
+                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv1".format(i+1))
+                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv2".format(i+1))
+
+            with tf.name_scope("skip-conn"):
+                net = net + shortcut
+            
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
+            
+            net = slim.conv2d(net, 1, [3, 3],
+                              activation_fn=tf.nn.tanh,
+                              normalizer_fn=None,
+                              normalizer_params=None,
+                              scope="logit")
+
+            end_pts = slim.utils.convert_collection_to_dict(end_pts_collection)
+            dn = inputs - net
+
+    return dn, net, end_pts
+
+
+def dncnn_residual_skip(inputs, reuse=None, scope=None):
+    net = inputs
+    with tf.variable_scope(scope or "model", reuse=reuse) as scp:
+        end_pts_collection = scp.name+"end_pts"
+        with slim.arg_scope([slim.conv2d],
+                            outputs_collections=end_pts_collection):
+            net = slim.conv2d(net, 64, [3, 3],
+                              normalizer_fn=None,
+                              normalizer_params=None,
+                              scope="preconv1")
+
+            shortcut = tf.identity(net, name="shortcut")
+
+            for i in range(10):
+                net = ops.residual_block(net, 64, scope="unit{}".format(i+1))
+            net = slim.batch_norm(net, activation_fn=tf.nn.relu, scope="postact")
+
+            with tf.name_scope("skip-conn"):
+                net =  net + shortcut
+            
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
+            net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
+            
+            net = slim.conv2d(net, 1, [3, 3],
+                              activation_fn=tf.nn.tanh,
+                              normalizer_fn=None,
+                              normalizer_params=None,
+                              scope="logit")
 
             end_pts = slim.utils.convert_collection_to_dict(end_pts_collection)
             dn = inputs - net
