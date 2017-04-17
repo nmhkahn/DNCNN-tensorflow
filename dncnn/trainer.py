@@ -69,7 +69,7 @@ class Trainer(object):
         config, params = self.config, self.params
         
         is_training  = params["is_training"]
-        learnig_rate = params["learning_rate"]
+        learning_rate = params["learning_rate"]
         global_step  = params["global_step"]
         artifact_im  = params["artifact_im"]
         reference_im = params["reference_im"]
@@ -107,7 +107,7 @@ class Trainer(object):
         with tf.variable_scope("Optimizer"):
             optimizer = tf.train.AdamOptimizer(
                 learning_rate,
-                beta1=config.beta1
+                beta1=config.beta1,
                 epsilon=config.epsilon).minimize(L2_loss, global_step)
 
         params["denoised"]  = G_dn
