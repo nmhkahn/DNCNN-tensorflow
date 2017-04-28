@@ -37,13 +37,17 @@ def base(inputs, reuse=None, scope=None):
                               scope="preconv1")
 
             for i in range(10):
-                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv1".format(i+1))
-                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv2".format(i+1))
-            
+                net = slim.conv2d(net,
+                                  64, [3, 3],
+                                  scope="block{}/conv1".format(i+1))
+                net = slim.conv2d(net,
+                                  64, [3, 3],
+                                  scope="block{}/conv2".format(i+1))
+
             net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
-            
+
             net = slim.conv2d(net, 1, [3, 3],
                               activation_fn=tf.nn.tanh,
                               normalizer_fn=None,
@@ -70,11 +74,11 @@ def residual(inputs, reuse=None, scope=None):
             for i in range(10):
                 net = ops.residual_block(net, 64, scope="unit{}".format(i+1))
             net = slim.batch_norm(net, activation_fn=tf.nn.relu, scope="postact")
-            
+
             net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
-            
+
             net = slim.conv2d(net, 1, [3, 3],
                               activation_fn=tf.nn.tanh,
                               normalizer_fn=None,
@@ -102,16 +106,20 @@ def base_skip(inputs, reuse=None, scope=None):
             shortcut = tf.identity(net, name="shortcut")
 
             for i in range(10):
-                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv1".format(i+1))
-                net = slim.conv2d(net, 64, [3, 3], scope="block{}/conv2".format(i+1))
+                net = slim.conv2d(net,
+                                  64, [3, 3],
+                                  scope="block{}/conv1".format(i+1))
+                net = slim.conv2d(net,
+                                  64, [3, 3],
+                                  scope="block{}/conv2".format(i+1))
 
             with tf.name_scope("skip-conn"):
                 net = net + shortcut
-            
+
             net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
-            
+
             net = slim.conv2d(net, 1, [3, 3],
                               activation_fn=tf.nn.tanh,
                               normalizer_fn=None,
@@ -137,17 +145,17 @@ def residual_skip(inputs, reuse=None, scope=None):
 
             shortcut = tf.identity(net, name="shortcut")
 
-            for i in range(10):
+            for i in range(15):
                 net = ops.residual_block(net, 64, scope="unit{}".format(i+1))
             net = slim.batch_norm(net, activation_fn=tf.nn.relu, scope="postact")
 
             with tf.name_scope("skip-conn"):
                 net =  net + shortcut
-            
+
             net = slim.conv2d(net, 64, [3, 3], scope="postconv1")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv2")
             net = slim.conv2d(net, 64, [3, 3], scope="postconv3")
-            
+
             net = slim.conv2d(net, 1, [3, 3],
                               activation_fn=tf.nn.tanh,
                               normalizer_fn=None,
