@@ -19,17 +19,13 @@ def parse_args():
     parser.add_argument("--model",
                         type=str)
 
-
     parser.add_argument("--batch_size",
                         type=int,
                         default=32)
     parser.add_argument("--image_size",
                         type=int,
                         default=96)
-    parser.add_argument("--quality",
-                        type=int,
-                        default=20)
-
+    
     parser.add_argument("--learning_rate",
                         type=float,
                         default=0.01)
@@ -62,11 +58,9 @@ def parse_args():
 
 
 def main(args):
-    # prepare filenames to read in training
-    im_paths = glob.glob("{}/train/gray/*.jpg".format(args.dataset_dir))
-    im_names = [path.split(".")[0].split("/")[-1] for path in im_paths]
+    filename = os.path.join(args.dataset_dir, "train/train.csv")
 
-    t = trainer.Trainer(im_names, args)
+    t = trainer.Trainer(filename, args)
     t.fit()
 
 if __name__ == "__main__":

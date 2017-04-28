@@ -12,11 +12,11 @@ import utils
 import model
 
 class Trainer(object):
-    def __init__(self, filenames, config):
+    def __init__(self, filename, config):
         self.params = dict()
         self.config = config
 
-        self._prepare_inputs(filenames)
+        self._prepare_inputs(filename)
         self._build_model()
 
         self.saver = tf.train.Saver(max_to_keep=config.max_to_keep)
@@ -38,7 +38,7 @@ class Trainer(object):
             gpu_options=tf.GPUOptions(allow_growth=True))
         self.sess = self.sv.prepare_or_wait_for_session(config=sess_config)
 
-    def _prepare_inputs(self, filenames):
+    def _prepare_inputs(self, filename):
         config, params = self.config, self.params
 
         global_step  = tf.Variable(0, trainable=False, name="global_step")
@@ -47,10 +47,8 @@ class Trainer(object):
                                     trainable=False,
                                     name="learning_rate")
 
-        artifact_im, reference_im = ops.read_image_from_filenames(
-            filenames,
-            base_dir=config.dataset_dir, trainval="train",
-            quality=config.quality,
+        artifact_im, reference_im, quality = ops.read_image_from_filename(
+            filename,
             batch_size=config.batch_size, 
             num_threads=config.num_threads,
             output_height=config.image_size, 
@@ -64,16 +62,19 @@ class Trainer(object):
 
         params["artifact_im"]   = artifact_im
         params["reference_im"]  = reference_im
+        params["quality"]       = quality
 
     def _build_model(self):
         config, params = self.config, self.params
         
-        is_training  = params["is_training"]
+        is_training   = params["is_training"]
         learning_rate = params["learning_rate"]
-        global_step  = params["global_step"]
-        artifact_im  = params["artifact_im"]
-        reference_im = params["reference_im"]
-        
+        global_step   = params["global_step"]
+
+        artifact_im   = params["artifact_im"]
+        reference_im  = params["reference_im"]
+        quality       = params["quality"]
+       
         # TODO: more elegant way? (such as factory pattern)
         if config.model == "base":
             model_fn = model.base
