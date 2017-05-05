@@ -34,7 +34,7 @@ def parse_args():
                         default="log/")
     parser.add_argument("--dataset_dir",
                         type=str,
-                        default="flickr")
+                        default="datasets")
 
     parser.add_argument("--num_threads",
                         type=int,

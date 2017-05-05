@@ -51,8 +51,8 @@ def read_image_from_filename(filename,
 
         csv_path = tf.train.string_input_producer([filename])
         _, csv_content = textReader.read(csv_path)
-        artifact_filenames, reference_filenames, labels = tf.decode_csv(
-            csv_content, record_defaults=[[""], [""], [0]])
+        artifact_filenames, reference_filenames = tf.decode_csv(
+            csv_content, record_defaults=[[""], [""]])
 
         # when training use_shuffle_batch must be True
         # else (e.g. evaluation) evaluation code runs in single epoch and
@@ -101,7 +101,7 @@ def read_image_from_filename(filename,
                 name="shuffle_batch")
         else:
             im_batch, label_batch = tf.train.batch(
-                [concated_im, labels],
+                [concated_im],
                 batch_size=batch_size,
                 num_threads=num_threads,
                 allow_smaller_final_batch=True,
@@ -112,4 +112,4 @@ def read_image_from_filename(filename,
         artifact_batch  = tf.cast(artifact_batch, tf.float32) / 127.5 - 1.0
         reference_batch = tf.cast(reference_batch, tf.float32) / 127.5 - 1.0
 
-        return artifact_batch, reference_batch, None
+        return artifact_batch, reference_batch

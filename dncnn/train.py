@@ -15,7 +15,7 @@ def parse_args():
                         type=str)
     parser.add_argument("--dataset_dir",
                         type=str,
-                        default="flickr")
+                        default="datasets")
     parser.add_argument("--model",
                         type=str)
 
@@ -59,6 +59,9 @@ def parse_args():
 
 def main(args):
     filename = os.path.join(args.dataset_dir, "train/train.csv")
+
+    with open(filename, "r") as f:
+        print(f.readline())
 
     t = trainer.Trainer(filename, args)
     t.fit()

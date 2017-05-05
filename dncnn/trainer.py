@@ -47,7 +47,7 @@ class Trainer(object):
                                     trainable=False,
                                     name="learning_rate")
 
-        artifact_im, reference_im, quality = ops.read_image_from_filename(
+        artifact_im, reference_im = ops.read_image_from_filename(
             filename,
             batch_size=config.batch_size, 
             num_threads=config.num_threads,
@@ -62,7 +62,6 @@ class Trainer(object):
 
         params["artifact_im"]   = artifact_im
         params["reference_im"]  = reference_im
-        params["quality"]       = quality
 
     def _build_model(self):
         config, params = self.config, self.params
@@ -73,7 +72,6 @@ class Trainer(object):
 
         artifact_im   = params["artifact_im"]
         reference_im  = params["reference_im"]
-        quality       = params["quality"]
        
         # TODO: more elegant way? (such as factory pattern)
         if config.model == "base":
