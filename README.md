@@ -33,7 +33,7 @@ reference_image_path,artifact_image_path
 ...
 ```
 
-3. Very important. This code currently only support **gray** scale image, so to train in colorful image, you must tweek model code to input 3-channel inputs.
+3. Very important. This code currently only support **gray** scale image, so to train in colorful image, you must tweek model code to handle 3-channel inputs.
 
 ## Training and evaluation
 `script/train.sh` is example of how to train this network.
@@ -71,4 +71,13 @@ python dncnn/evaluate.py
     --dataset_dir=dataset    
 ```
 
-In `dncnn/evaulate.py`, it repeately check new checkpoint is created and if does, run evaluate with new checkpoint file.
+In `dncnn/evaulate.py`, it repeately check new checkpoint is created and if does, run evaluate with new checkpoint file. And note that, evaluation code can input and output only **single image** at once. Because TensorFlow `placeholder` shape is fixed in building graph phase. So to handle vary size images, this evaluation code is running like below
+
+```
+for image in test_images:
+    output = build_graph()
+    sess   = tf.Session()
+    result = sess.run(output, feed_dict=...)
+    
+    tf.reset_default_graph()
+```
