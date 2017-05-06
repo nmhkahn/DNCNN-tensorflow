@@ -73,11 +73,11 @@ python dncnn/evaluate.py
 
 In `dncnn/evaulate.py`, it repeately check new checkpoint is created and if does, run evaluate with new checkpoint file. And note that, evaluation code can input and output only **single image** at once. Because TensorFlow `placeholder` shape is fixed in building graph phase. So to handle vary size images, this evaluation code is running like below
 
-```
+```python
 for image in test_images:
     output = build_graph()
     sess   = tf.Session()
-    result = sess.run(output, feed_dict=...)
+    result = sess.run(output, feed_dict={placeholder:image})
     
     tf.reset_default_graph()
 ```
