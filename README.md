@@ -24,12 +24,12 @@ dataset
     └── images... # train.csv record location of images 
 ```
 
-2. `csv` file format is described below. Note that, it is safe to record paths as a absolute path.
+2. `csv` file format is described below. Note that, it is safe to record paths as a absolute path. And if you have no information about quality factor, let it to zero.
 
 ```
-reference_image_path,artifact_image_path
-reference_image_path,artifact_image_path
-reference_image_path,artifact_image_path
+reference_image_path,artifact_image_path,quality_factor
+reference_image_path,artifact_image_path,quality_factor
+reference_image_path,artifact_image_path,quality_factor
 ...
 ```
 
